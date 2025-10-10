@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "vercel dev",
-    "build": "tsc",
+    "build": "echo 'TypeScript compiled automatically by Vercel'",
     "deploy": "vercel --prod",
     "test": "node scripts/test-local.js",
     "setup": "node scripts/setup-auth.js"
