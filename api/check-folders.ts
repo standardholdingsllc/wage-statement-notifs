@@ -66,6 +66,12 @@ export default async function handler(
       timestamp: new Date().toISOString(),
       filesChecked: allFiles.length,
       newFilesFound: newFiles.length,
+      newFiles: newFiles.map(f => ({
+        clientName: f.clientName,
+        name: f.name,
+        modifiedDateTime: f.modifiedDateTime,
+        webUrl: f.webUrl
+      })),
       message: newFiles.length > 0 
         ? `Notified about ${newFiles.length} new file(s)` 
         : 'No new files found',
