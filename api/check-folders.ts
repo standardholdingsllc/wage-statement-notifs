@@ -2,6 +2,7 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import { OneDriveMonitor } from '../lib/onedrive';
 import { SlackNotifier } from '../lib/slack';
 import { StateManager } from '../lib/state';
+import { AzureAuth } from '../lib/auth';
 
 // In a real production environment, you'd want to use Vercel KV or a database
 // For this example, we'll use Vercel's built-in storage or environment variables
@@ -18,18 +19,26 @@ export default async function handler(
   }
 
   try {
-    // Initialize services
-    const accessToken = process.env.ONEDRIVE_ACCESS_TOKEN;
+    // Get required environment variables
     const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;
+    const clientId = process.env.AZURE_CLIENT_ID;
+    const clientSecret = process.env.AZURE_CLIENT_SECRET;
+    const tenantId = process.env.AZURE_TENANT_ID;
 
-    if (!accessToken) {
-      throw new Error('ONEDRIVE_ACCESS_TOKEN is not set');
-    }
-
+    // Validate environment variables
     if (!slackWebhookUrl) {
       throw new Error('SLACK_WEBHOOK_URL is not set');
     }
 
+    if (!clientId || !clientSecret || !tenantId) {
+      throw new Error('Azure credentials not set. Need AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID');
+    }
+
+    // Get access token from Azure
+    const auth = new AzureAuth(clientId, clientSecret, tenantId);
+    const accessToken = await auth.getAccessToken();
+
+    // Initialize services
     const onedrive = new OneDriveMonitor(accessToken);
     const slack = new SlackNotifier(slackWebhookUrl);
     const stateManager = new StateManager();
@@ -101,4 +110,5 @@ export default async function handler(
     });
   }
 }
+
 
