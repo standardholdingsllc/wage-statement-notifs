@@ -50,8 +50,7 @@
         }
 
         button {
-            flex: 1;
-            min-width: 150px;
+            width: 100%;
             padding: 15px 30px;
             font-size: 16px;
             font-weight: 600;
@@ -76,16 +75,6 @@
         .btn-primary:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn-secondary {
-            background: #f0f0f0;
-            color: #333;
-        }
-
-        .btn-secondary:hover:not(:disabled) {
-            background: #e0e0e0;
-            transform: translateY(-2px);
         }
 
         .status {
@@ -215,13 +204,6 @@
             font-size: 12px;
         }
 
-        .footer {
-            margin-top: 30px;
-            text-align: center;
-            color: #999;
-            font-size: 12px;
-        }
-
         .cron-info {
             background: #e7f3ff;
             padding: 15px;
@@ -248,18 +230,11 @@
             <button class="btn-primary" onclick="runScan()" id="scanBtn">
                 🔍 Run Scan Now
             </button>
-            <button class="btn-secondary" onclick="testSlack()" id="slackBtn">
-                💬 Test Slack
-            </button>
         </div>
 
         <div id="status" class="status"></div>
 
         <div id="results" class="results"></div>
-
-        <div class="footer">
-            Powered by Vercel | Monitoring 80+ client folders
-        </div>
     </div>
 
     <script>
@@ -350,34 +325,6 @@
             } finally {
                 scanBtn.disabled = false;
                 scanBtn.innerHTML = originalText;
-            }
-        }
-
-        async function testSlack() {
-            const slackBtn = document.getElementById('slackBtn');
-            const originalText = slackBtn.innerHTML;
-            
-            try {
-                slackBtn.disabled = true;
-                slackBtn.innerHTML = '<span class="spinner"></span>Testing...';
-                showStatus('<span class="spinner"></span> Sending test notification to Slack...', 'loading');
-                
-                const response = await fetch('/api/test-notification', {
-                    method: 'GET'
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok && data.success) {
-                    showStatus('✅ Test notification sent! Check your Slack channel.', 'success');
-                } else {
-                    showStatus(`❌ Error: ${data.error || 'Test failed'}`, 'error');
-                }
-            } catch (error) {
-                showStatus(`❌ Error: ${error.message}`, 'error');
-            } finally {
-                slackBtn.disabled = false;
-                slackBtn.innerHTML = originalText;
             }
         }
 
