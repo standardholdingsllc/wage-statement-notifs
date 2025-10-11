@@ -14,13 +14,21 @@ export default async function handler(
 ) {
   console.log('=== Wage Statement Monitor - Check Folders Started ===');
   console.log('Timestamp:', new Date().toISOString());
+  console.log('Request method:', req.method);
+  console.log('User agent:', req.headers['user-agent']);
   
-  // Verify this is a cron request (optional security measure)
+  // Optional: Verify this is a cron request (only if CRON_SECRET is set AND a cron header is present)
+  // This allows manual web requests to work while still protecting automated cron jobs
   const authHeader = req.headers.authorization;
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    console.log('Authorization failed: Invalid or missing cron secret');
+  const isCronRequest = req.headers['x-vercel-cron'] === '1'; // Vercel adds this header for cron jobs
+  
+  if (process.env.CRON_SECRET && isCronRequest && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    console.log('Authorization failed: Invalid cron secret for automated job');
     return res.status(401).json({ error: 'Unauthorized' });
   }
+  
+  console.log('Authorization check passed (manual request or valid cron)');
+
 
   try {
     // Get required environment variables
