@@ -26,13 +26,17 @@ export class OneDriveMonitor {
    */
   async getFolderContents(folderId: string): Promise<any[]> {
     try {
+      console.log(`Fetching contents of folder: ${folderId}`);
       const response = await this.client
         .api(`/me/drive/items/${folderId}/children`)
         .get();
       
+      console.log(`✓ Got ${response.value?.length || 0} items from folder`);
       return response.value || [];
-    } catch (error) {
-      console.error('Error getting folder contents:', error);
+    } catch (error: any) {
+      console.error('Error getting folder contents:', error.message);
+      console.error('Status code:', error.statusCode);
+      console.error('Error body:', error.body);
       throw error;
     }
   }
@@ -42,17 +46,25 @@ export class OneDriveMonitor {
    */
   async findClientFoldersRoot(): Promise<string | null> {
     try {
+      console.log('Searching for "Client Folders" directory...');
       const response = await this.client
         .api('/me/drive/root/children')
         .filter("name eq 'Client Folders'")
         .get();
       
+      console.log('Search response:', response.value?.length || 0, 'folders found');
+      
       if (response.value && response.value.length > 0) {
+        console.log('✓ Found "Client Folders" with ID:', response.value[0].id);
         return response.value[0].id;
       }
+      
+      console.error('✗ "Client Folders" directory not found');
       return null;
-    } catch (error) {
-      console.error('Error finding Client Folders:', error);
+    } catch (error: any) {
+      console.error('Error finding Client Folders:', error.message);
+      console.error('Status code:', error.statusCode);
+      console.error('Error body:', error.body);
       return null;
     }
   }

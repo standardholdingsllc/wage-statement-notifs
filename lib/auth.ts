@@ -19,10 +19,16 @@ export class AzureAuth {
   async getAccessToken(): Promise<string> {
     // Return cached token if still valid (with 5 minute buffer)
     if (this.cachedToken && Date.now() < this.tokenExpiry - 300000) {
+      console.log('Using cached access token');
       return this.cachedToken;
     }
 
     // Get new token
+    console.log('Acquiring new access token from Azure...');
+    console.log('Tenant ID:', this.tenantId);
+    console.log('Client ID:', this.clientId);
+    console.log('Authority:', `https://login.microsoftonline.com/${this.tenantId}`);
+    
     const config = {
       auth: {
         clientId: this.clientId,
@@ -38,11 +44,16 @@ export class AzureAuth {
     };
 
     try {
+      console.log('Requesting token with client credentials...');
       const response = await cca.acquireTokenByClientCredential(tokenRequest);
       
       if (!response || !response.accessToken) {
-        throw new Error('Failed to acquire access token');
+        console.error('Token response was empty or missing accessToken');
+        throw new Error('Failed to acquire access token - empty response');
       }
+
+      console.log('✓ Token acquired successfully');
+      console.log('Token expires at:', response.expiresOn);
 
       // Cache the token
       this.cachedToken = response.accessToken;
@@ -50,8 +61,11 @@ export class AzureAuth {
 
       return response.accessToken;
     } catch (error: any) {
-      console.error('Error acquiring token:', error);
-      throw new Error(`Authentication failed: ${error.message}`);
+      console.error('=== Azure Authentication Error ===');
+      console.error('Error code:', error.errorCode);
+      console.error('Error message:', error.errorMessage || error.message);
+      console.error('Error details:', error);
+      throw new Error(`Authentication failed: ${error.errorMessage || error.message}`);
     }
   }
 }

@@ -12,9 +12,13 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
+  console.log('=== Wage Statement Monitor - Check Folders Started ===');
+  console.log('Timestamp:', new Date().toISOString());
+  
   // Verify this is a cron request (optional security measure)
   const authHeader = req.headers.authorization;
   if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    console.log('Authorization failed: Invalid or missing cron secret');
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
@@ -24,6 +28,12 @@ export default async function handler(
     const clientId = process.env.AZURE_CLIENT_ID;
     const clientSecret = process.env.AZURE_CLIENT_SECRET;
     const tenantId = process.env.AZURE_TENANT_ID;
+
+    console.log('Environment variables check:');
+    console.log('- SLACK_WEBHOOK_URL:', slackWebhookUrl ? '✓ Set' : '✗ Missing');
+    console.log('- AZURE_CLIENT_ID:', clientId ? '✓ Set' : '✗ Missing');
+    console.log('- AZURE_CLIENT_SECRET:', clientSecret ? '✓ Set' : '✗ Missing');
+    console.log('- AZURE_TENANT_ID:', tenantId ? '✓ Set' : '✗ Missing');
 
     // Validate environment variables
     if (!slackWebhookUrl) {
@@ -35,10 +45,13 @@ export default async function handler(
     }
 
     // Get access token from Azure
+    console.log('Attempting to get Azure access token...');
     const auth = new AzureAuth(clientId, clientSecret, tenantId);
     const accessToken = await auth.getAccessToken();
+    console.log('✓ Access token obtained successfully');
 
     // Initialize services
+    console.log('Initializing services...');
     const onedrive = new OneDriveMonitor(accessToken);
     const slack = new SlackNotifier(slackWebhookUrl);
     const stateManager = new StateManager();
@@ -46,30 +59,39 @@ export default async function handler(
     // Load previous state if available
     const storedState = process.env.STATE_DATA;
     await stateManager.load(storedState);
+    console.log('✓ Services initialized');
 
-    console.log('Starting folder check...');
+    console.log('Starting OneDrive folder scan...');
 
     // Monitor all client folders
     const allFiles = await onedrive.monitorAllClients();
-    console.log(`Found ${allFiles.length} total files in client folders`);
+    console.log(`✓ Found ${allFiles.length} total files in client folders`);
 
     // Filter out files we've already notified about
     const newFiles = stateManager.filterNewFiles(allFiles);
-    console.log(`${newFiles.length} new files to notify about`);
+    console.log(`Filtered files: ${newFiles.length} new files to notify about`);
 
     // Send Slack notification if there are new files
     if (newFiles.length > 0) {
+      console.log('Sending Slack notification...');
+      console.log('New files:', newFiles.map(f => `${f.clientName}/${f.name}`).join(', '));
       await slack.notifyNewFiles(newFiles);
       stateManager.markAsProcessed(newFiles);
-      console.log(`Sent notification for ${newFiles.length} file(s)`);
+      console.log(`✓ Sent notification for ${newFiles.length} file(s)`);
+    } else {
+      console.log('No new files found - no notification sent');
     }
 
     // Cleanup old entries
+    console.log('Cleaning up old state entries...');
     stateManager.cleanup();
+    console.log('✓ Cleanup complete');
 
     // Export state for next run
     const newState = stateManager.export();
 
+    console.log('=== Scan Complete Successfully ===');
+    
     return res.status(200).json({
       success: true,
       timestamp: new Date().toISOString(),
@@ -90,7 +112,19 @@ export default async function handler(
     });
 
   } catch (error: any) {
-    console.error('Error in check-folders:', error);
+    console.error('=== ERROR OCCURRED ===');
+    console.error('Error type:', error.constructor.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    
+    // Log additional error details if available
+    if (error.response) {
+      console.error('Error response status:', error.response.status);
+      console.error('Error response data:', error.response.data);
+    }
+    if (error.statusCode) {
+      console.error('Error status code:', error.statusCode);
+    }
 
     // Try to send error notification to Slack
     try {
@@ -106,6 +140,8 @@ export default async function handler(
     return res.status(500).json({
       success: false,
       error: error.message,
+      errorType: error.constructor.name,
+      errorDetails: error.response?.data || error.statusCode || 'No additional details',
       timestamp: new Date().toISOString(),
     });
   }
