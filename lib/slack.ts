@@ -16,41 +16,30 @@ export class SlackNotifier {
       return;
     }
 
-    const blocks = [
-      {
-        type: 'header',
-        text: {
-          type: 'plain_text',
-          text: `🔔 ${files.length} New Wage Statement${files.length > 1 ? 's' : ''} Detected`,
-          emoji: true,
-        },
-      },
-      {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `Found ${files.length} new file${files.length > 1 ? 's' : ''} that need${files.length === 1 ? 's' : ''} processing:`,
-        },
-      },
-      {
-        type: 'divider',
-      },
-    ];
-
-    // Add each file as a section
+    // Group files by client and get folder URLs
+    const clientFolders = new Map<string, string>();
+    
     for (const file of files) {
-      blocks.push({
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `*Client:* ${file.clientName}\n*File:* <${file.webUrl}|${file.name}>\n*Modified:* ${new Date(file.modifiedDateTime).toLocaleString()}`,
-        },
-      } as any);
+      const folderName = `${file.clientName} Wage Statements`;
+      if (!clientFolders.has(file.clientName)) {
+        // Extract the parent folder URL from the file's webUrl
+        // The file webUrl looks like: https://domain.sharepoint.com/.../Folder/file.pdf
+        // We want just the folder URL
+        const folderUrl = file.webUrl.substring(0, file.webUrl.lastIndexOf('/'));
+        clientFolders.set(file.clientName, folderUrl);
+      }
+    }
+
+    // Build the message - one line per folder
+    let messageLines: string[] = [];
+    
+    for (const [clientName, folderUrl] of clientFolders) {
+      const folderName = `${clientName} Wage Statements`;
+      messageLines.push(`File Uploaded to <${folderUrl}|${folderName}>`);
     }
 
     await this.webhook.send({
-      blocks,
-      text: `${files.length} new wage statement(s) detected`, // Fallback text
+      text: messageLines.join('\n'),
     });
   }
 
