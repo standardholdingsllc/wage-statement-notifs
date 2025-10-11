@@ -104,25 +104,46 @@ export class OneDriveMonitor {
   }
 
   /**
-   * Check a client folder for new files (excluding the "Processed Wage Statements" folder)
+   * Check a client folder for new files (in the "[Client Name] Wage Statements" subfolder)
    */
   async checkClientFolder(clientFolderId: string, clientName: string): Promise<FileItem[]> {
     try {
-      const items = await this.getFolderContents(clientFolderId);
+      console.log(`Checking client: ${clientName}`);
+      
+      // First, get the contents of the client folder to find the "Wage Statements" subfolder
+      const clientItems = await this.getFolderContents(clientFolderId);
+      
+      // Look for the "[Client Name] Wage Statements" folder
+      const wageStatementsFolder = clientItems.find(item => 
+        item.folder && item.name === `${clientName} Wage Statements`
+      );
+      
+      if (!wageStatementsFolder) {
+        console.log(`No "${clientName} Wage Statements" folder found, skipping client`);
+        return [];
+      }
+      
+      console.log(`Found "${clientName} Wage Statements" folder, checking for files...`);
+      
+      // Now get the contents of the Wage Statements folder
+      const wageStatementsItems = await this.getFolderContents(wageStatementsFolder.id);
       const newFiles: FileItem[] = [];
 
-      for (const item of items) {
+      for (const item of wageStatementsItems) {
         // Skip the "Processed Wage Statements" folder
         if (item.folder && item.name === 'Processed Wage Statements') {
+          console.log(`Skipping "Processed Wage Statements" subfolder`);
           continue;
         }
 
-        // Skip folders, only look at files
+        // Skip ALL folders, only look at files
         if (item.folder) {
+          console.log(`Skipping folder: ${item.name}`);
           continue;
         }
 
-        // This is a file that's not in the processed folder
+        // This is a file in the Wage Statements folder
+        console.log(`Found file: ${item.name}`);
         newFiles.push({
           id: item.id,
           name: item.name,
