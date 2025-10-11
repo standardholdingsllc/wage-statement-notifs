@@ -12,13 +12,16 @@ export interface FileItem {
 
 export class OneDriveMonitor {
   private client: Client;
+  private userEmail: string;
 
-  constructor(accessToken: string) {
+  constructor(accessToken: string, userEmail?: string) {
     this.client = Client.init({
       authProvider: (done) => {
         done(null, accessToken);
       },
     });
+    // Use provided email or default to /me (for delegated auth)
+    this.userEmail = userEmail || 'me';
   }
 
   /**
@@ -27,8 +30,12 @@ export class OneDriveMonitor {
   async getFolderContents(folderId: string): Promise<any[]> {
     try {
       console.log(`Fetching contents of folder: ${folderId}`);
+      const endpoint = this.userEmail === 'me' 
+        ? `/me/drive/items/${folderId}/children`
+        : `/users/${this.userEmail}/drive/items/${folderId}/children`;
+      
       const response = await this.client
-        .api(`/me/drive/items/${folderId}/children`)
+        .api(endpoint)
         .get();
       
       console.log(`✓ Got ${response.value?.length || 0} items from folder`);
@@ -47,8 +54,14 @@ export class OneDriveMonitor {
   async findClientFoldersRoot(): Promise<string | null> {
     try {
       console.log('Searching for "Client Folders" directory...');
+      console.log('Using endpoint for user:', this.userEmail);
+      
+      const endpoint = this.userEmail === 'me'
+        ? '/me/drive/root/children'
+        : `/users/${this.userEmail}/drive/root/children`;
+      
       const response = await this.client
-        .api('/me/drive/root/children')
+        .api(endpoint)
         .filter("name eq 'Client Folders'")
         .get();
       
@@ -74,8 +87,12 @@ export class OneDriveMonitor {
    */
   async getClientFolders(clientFoldersId: string): Promise<any[]> {
     try {
+      const endpoint = this.userEmail === 'me'
+        ? `/me/drive/items/${clientFoldersId}/children`
+        : `/users/${this.userEmail}/drive/items/${clientFoldersId}/children`;
+      
       const response = await this.client
-        .api(`/me/drive/items/${clientFoldersId}/children`)
+        .api(endpoint)
         .filter('folder ne null')
         .get();
       

@@ -36,12 +36,14 @@ export default async function handler(
     const clientId = process.env.AZURE_CLIENT_ID;
     const clientSecret = process.env.AZURE_CLIENT_SECRET;
     const tenantId = process.env.AZURE_TENANT_ID;
+    const userEmail = process.env.ONEDRIVE_USER_EMAIL; // Email of user whose OneDrive to scan
 
     console.log('Environment variables check:');
     console.log('- SLACK_WEBHOOK_URL:', slackWebhookUrl ? '✓ Set' : '✗ Missing');
     console.log('- AZURE_CLIENT_ID:', clientId ? '✓ Set' : '✗ Missing');
     console.log('- AZURE_CLIENT_SECRET:', clientSecret ? '✓ Set' : '✗ Missing');
     console.log('- AZURE_TENANT_ID:', tenantId ? '✓ Set' : '✗ Missing');
+    console.log('- ONEDRIVE_USER_EMAIL:', userEmail ? '✓ Set' : '✗ Missing');
 
     // Validate environment variables
     if (!slackWebhookUrl) {
@@ -52,6 +54,10 @@ export default async function handler(
       throw new Error('Azure credentials not set. Need AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID');
     }
 
+    if (!userEmail) {
+      throw new Error('ONEDRIVE_USER_EMAIL is not set. Need the email address of the user whose OneDrive to scan.');
+    }
+
     // Get access token from Azure
     console.log('Attempting to get Azure access token...');
     const auth = new AzureAuth(clientId, clientSecret, tenantId);
@@ -60,7 +66,8 @@ export default async function handler(
 
     // Initialize services
     console.log('Initializing services...');
-    const onedrive = new OneDriveMonitor(accessToken);
+    console.log('Scanning OneDrive for user:', userEmail);
+    const onedrive = new OneDriveMonitor(accessToken, userEmail);
     const slack = new SlackNotifier(slackWebhookUrl);
     const stateManager = new StateManager();
 
