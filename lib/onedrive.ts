@@ -104,7 +104,7 @@ export class OneDriveMonitor {
   }
 
   /**
-   * Check a client folder for new files (in the "[Client Name] Wage Statements" subfolder)
+   * Check a client folder for new files (in the "... Wage Statements" subfolder)
    */
   async checkClientFolder(clientFolderId: string, clientName: string): Promise<FileItem[]> {
     try {
@@ -113,32 +113,34 @@ export class OneDriveMonitor {
       // First, get the contents of the client folder to find the "Wage Statements" subfolder
       const clientItems = await this.getFolderContents(clientFolderId);
       
-      // Look for the "[Client Name] Wage Statements" folder
-      const wageStatementsFolder = clientItems.find(item => 
-        item.folder && item.name === `${clientName} Wage Statements`
-      );
+      // Look for a "Wage Statements" folder (prefix can vary; case-insensitive)
+      const wageStatementsFolder = clientItems.find(item => {
+        if (!item || !item.folder || !item.name) return false;
+        const normalized = String(item.name).trim().toLowerCase();
+        return normalized.endsWith('wage statements');
+      });
       
       if (!wageStatementsFolder) {
-        console.log(`No "${clientName} Wage Statements" folder found, skipping client`);
+        console.log(`No "Wage Statements" folder found under client "${clientName}", skipping client`);
         return [];
       }
       
-      console.log(`Found "${clientName} Wage Statements" folder, checking for files...`);
+      console.log(`Found Wage Statements folder "${wageStatementsFolder.name}", checking for files...`);
       
       // Now get the contents of the Wage Statements folder
       const wageStatementsItems = await this.getFolderContents(wageStatementsFolder.id);
       const newFiles: FileItem[] = [];
 
       for (const item of wageStatementsItems) {
-        // Skip the "Processed Wage Statements" folder
-        if (item.folder && item.name === 'Processed Wage Statements') {
+        // Skip the "Processed Wage Statements" folder (case-insensitive match)
+        if (item.folder && item.name && item.name.trim().toLowerCase() === 'processed wage statements') {
           console.log(`Skipping "Processed Wage Statements" subfolder`);
           continue;
         }
 
-        // Skip the "[Client Name] Wage Statements Samples" folder
-        if (item.folder && item.name === `${clientName} Wage Statements Samples`) {
-          console.log(`Skipping "${clientName} Wage Statements Samples" subfolder`);
+        // Skip any "... Wage Statements Samples" folder (case-insensitive match)
+        if (item.folder && item.name && item.name.trim().toLowerCase().endsWith('wage statements samples')) {
+          console.log(`Skipping "${item.name}" subfolder`);
           continue;
         }
 
