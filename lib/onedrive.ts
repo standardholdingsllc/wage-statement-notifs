@@ -136,6 +136,12 @@ export class OneDriveMonitor {
           continue;
         }
 
+        // Skip the "[Client Name] Wage Statements Samples" folder
+        if (item.folder && item.name === `${clientName} Wage Statements Samples`) {
+          console.log(`Skipping "${clientName} Wage Statements Samples" subfolder`);
+          continue;
+        }
+
         // Skip ALL folders, only look at files
         if (item.folder) {
           console.log(`Skipping folder: ${item.name}`);
