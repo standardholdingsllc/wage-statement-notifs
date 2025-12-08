@@ -8,6 +8,8 @@ export interface FileItem {
   clientName: string;
   modifiedDateTime: string;
   webUrl: string;
+  sourceFolderName?: string;
+  sourceFolderType?: 'wage-statements' | 'w-2s';
 }
 
 export class OneDriveMonitor {
@@ -113,53 +115,65 @@ export class OneDriveMonitor {
       // First, get the contents of the client folder to find the "Wage Statements" subfolder
       const clientItems = await this.getFolderContents(clientFolderId);
       
-      // Look for a "Wage Statements" folder (prefix can vary; case-insensitive)
-      const wageStatementsFolder = clientItems.find(item => {
+      // Look for a "Wage Statements" or "W-2s" folder (case-insensitive)
+      const targetFolders = clientItems.filter(item => {
         if (!item || !item.folder || !item.name) return false;
         const normalized = String(item.name).trim().toLowerCase();
-        return normalized.endsWith('wage statements');
+        return normalized.endsWith('wage statements') || normalized.endsWith('w-2s');
       });
       
-      if (!wageStatementsFolder) {
-        console.log(`No "Wage Statements" folder found under client "${clientName}", skipping client`);
+      if (!targetFolders.length) {
+        console.log(`No "Wage Statements" or "W-2s" folder found under client "${clientName}", skipping client`);
         return [];
       }
       
-      console.log(`Found Wage Statements folder "${wageStatementsFolder.name}", checking for files...`);
+      console.log(`Found ${targetFolders.length} target folder(s) for client "${clientName}", checking for files...`);
       
-      // Now get the contents of the Wage Statements folder
-      const wageStatementsItems = await this.getFolderContents(wageStatementsFolder.id);
+      // Now get the contents of each target folder
       const newFiles: FileItem[] = [];
 
-      for (const item of wageStatementsItems) {
-        // Skip the "Processed Wage Statements" folder (case-insensitive match)
-        if (item.folder && item.name && item.name.trim().toLowerCase() === 'processed wage statements') {
-          console.log(`Skipping "Processed Wage Statements" subfolder`);
-          continue;
-        }
+      for (const targetFolder of targetFolders) {
+        const normalizedFolderName = String(targetFolder.name).trim().toLowerCase();
+        const folderType: FileItem['sourceFolderType'] = normalizedFolderName.endsWith('w-2s')
+          ? 'w-2s'
+          : 'wage-statements';
 
-        // Skip any "... Wage Statements Samples" folder (case-insensitive match)
-        if (item.folder && item.name && item.name.trim().toLowerCase().endsWith('wage statements samples')) {
-          console.log(`Skipping "${item.name}" subfolder`);
-          continue;
-        }
+        const folderItems = await this.getFolderContents(targetFolder.id);
 
-        // Skip ALL folders, only look at files
-        if (item.folder) {
-          console.log(`Skipping folder: ${item.name}`);
-          continue;
-        }
+        for (const item of folderItems) {
+          const normalizedItemName = String(item.name || '').trim().toLowerCase();
 
-        // This is a file in the Wage Statements folder
-        console.log(`Found file: ${item.name}`);
-        newFiles.push({
-          id: item.id,
-          name: item.name,
-          path: item.parentReference?.path || '',
-          clientName: clientName,
-          modifiedDateTime: item.lastModifiedDateTime,
-          webUrl: item.webUrl,
-        });
+          // Skip processed subfolders (e.g., "Processed Wage Statements" or "Processed W-2s")
+          if (item.folder && (normalizedItemName === 'processed wage statements' || normalizedItemName === 'processed w-2s')) {
+            console.log(`Skipping processed subfolder "${item.name}"`);
+            continue;
+          }
+
+          // Skip any "... Wage Statements Samples" folder (case-insensitive match)
+          if (item.folder && normalizedItemName.endsWith('wage statements samples')) {
+            console.log(`Skipping "${item.name}" subfolder`);
+            continue;
+          }
+
+          // Skip ALL other folders, only look at files
+          if (item.folder) {
+            console.log(`Skipping folder: ${item.name}`);
+            continue;
+          }
+
+          // This is a file in the target folder
+          console.log(`Found file: ${item.name} in folder "${targetFolder.name}"`);
+          newFiles.push({
+            id: item.id,
+            name: item.name,
+            path: item.parentReference?.path || '',
+            clientName: clientName,
+            modifiedDateTime: item.lastModifiedDateTime,
+            webUrl: item.webUrl,
+            sourceFolderName: targetFolder.name,
+            sourceFolderType: folderType,
+          });
+        }
       }
 
       return newFiles;
