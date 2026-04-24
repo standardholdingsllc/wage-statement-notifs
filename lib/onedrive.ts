@@ -148,7 +148,7 @@ export class OneDriveMonitor {
             continue;
           }
 
-          if (item.folder && normalizedItemName.endsWith('wage statements samples')) {
+          if (item.folder && normalizedItemName.endsWith('samples')) {
             console.log(`Skipping "${item.name}" subfolder`);
             continue;
           }
