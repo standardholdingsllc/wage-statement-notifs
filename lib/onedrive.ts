@@ -143,25 +143,38 @@ export class OneDriveMonitor {
         for (const item of folderItems) {
           const normalizedItemName = String(item.name || '').trim().toLowerCase();
 
-          // Skip processed subfolders (e.g., "Processed Wage Statements" or "Processed W-2s")
-          if (item.folder && (normalizedItemName === 'processed wage statements' || normalizedItemName === 'processed w-2s')) {
+          if (item.folder && normalizedItemName.startsWith('processed')) {
             console.log(`Skipping processed subfolder "${item.name}"`);
             continue;
           }
 
-          // Skip any "... Wage Statements Samples" folder (case-insensitive match)
           if (item.folder && normalizedItemName.endsWith('wage statements samples')) {
             console.log(`Skipping "${item.name}" subfolder`);
             continue;
           }
 
-          // Skip ALL other folders, only look at files
+          // Scan one level into subfolders (e.g. date-based folders like "26-4-24")
           if (item.folder) {
-            console.log(`Skipping folder: ${item.name}`);
+            console.log(`Scanning subfolder "${item.name}" for files...`);
+            const subfolderItems = await this.getFolderContents(item.id);
+            for (const subItem of subfolderItems) {
+              if (!subItem.folder) {
+                console.log(`Found file: ${subItem.name} in subfolder "${item.name}" of "${targetFolder.name}"`);
+                newFiles.push({
+                  id: subItem.id,
+                  name: subItem.name,
+                  path: subItem.parentReference?.path || '',
+                  clientName: clientName,
+                  modifiedDateTime: subItem.lastModifiedDateTime,
+                  webUrl: subItem.webUrl,
+                  sourceFolderName: targetFolder.name,
+                  sourceFolderType: folderType,
+                });
+              }
+            }
             continue;
           }
 
-          // This is a file in the target folder
           console.log(`Found file: ${item.name} in folder "${targetFolder.name}"`);
           newFiles.push({
             id: item.id,
